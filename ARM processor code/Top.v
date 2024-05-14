@@ -1,15 +1,24 @@
 module Top(
-    input clk, rst
+    input clk, rst,
+    input forwardingEn,
+    inout [15:0] SRAM_DQ,
+    output [17:0] SRAM_ADDR,
+    output SRAM_UB_N,
+    output SRAM_LB_N,
+    output SRAM_WE_N,
+    output SRAM_CE_N,
+    output SRAM_OE_N
 );
     wire [31:0] pcOutIf,instOutIF,pcOutIfPipe,instOutIfpipe;
-
+   
     // ID
     wire [31:0] pcOut,regRn,regRm;
     wire [3:0] aluCmd, dest, hazardRn, hazardRdm;
     wire memRead, memWriteEn, wbEn, branch, s,imm,hazardTwoSrc;
     wire [11:0] shiftOperand;
     wire [23:0] imm24;
-    wire sortID,sortprevID; //sort
+    wire [3:0] src1OutId, src2OutId;
+
     // ID-EX
     wire [31:0] pcOutIdEx;
     wire [3:0] aluCmdOutIdEx;
@@ -19,8 +28,7 @@ module Top(
     wire [11:0] shiftOperandOutIdEx;
     wire [23:0] imm24OutIdEx;
     wire [3:0] destOutIdEx;
-    wire sortOutIDEX,sortprevOutIDEX; //sort
-
+    wire [3:0] src1OutIdEx, src2OutIdEx;
     // EXE
     wire memReadOutEx, memWriteOutEx, wbEnOutEx;
     wire branchTakenEX;
@@ -36,6 +44,7 @@ module Top(
     wire [3:0] destOutExMem;
     // Memory
     wire wbEnOutMem, memREnOutMem;
+    wire ramFreeze;
     wire [31:0] aluResOutMem, memOutMem;
     wire [3:0] destOutMem;
     // MEM-WB
@@ -45,12 +54,14 @@ module Top(
     // WB
     wire[31:0] WbValue;
     // Hazard
-    wire hazard , sorthazard;
+    wire hazard;
+    // Forwarding
+    wire [1:0] selSrc1, selSrc2;
 
     StageIF IF(
         .clk(clk),
         .rst(rst),
-        .freeze(hazard | sorthazard), //sort
+        .freeze(hazard  | ramFreeze),
         .branchTaken(branchTakenEX),
         .branchAddr(branchAddrEX),
         .pc(pcOutIf),
@@ -60,7 +71,7 @@ module Top(
     RegIFID regIFID(
         .clk(clk),
         .rst(rst),
-        .freeze(hazard | sorthazard), //sort
+        .freeze(hazard  | ramFreeze),
         .flush(branchTakenEX),
         .pcIn(pcOutIf),
         .instructionIn(instOutIF),
@@ -94,8 +105,8 @@ module Top(
         .hazardTwoSrc(hazardTwoSrc),
         .hazardRn(hazardRn),
         .hazardRdm(hazardRdm),
-        .sort(sortID),
-        .sort_prev(sortprevID)
+        .src1(src1OutId), 
+        .src2(src2OutId)
     );
 
     RegIDEX regIDEX(
@@ -107,8 +118,6 @@ module Top(
         .memWriteIn(memWriteEn),
         .wbEnIn(wbEn), 
         .branchIn(branch), 
-        .sort(sortID),
-        .sort_prev(sortprevID),
         .sIn(s),
         .regRnIn(regRn), 
         .regRmIn(regRm),
@@ -116,7 +125,10 @@ module Top(
         .shiftOperandIn(shiftOperand), 
         .imm24In(imm24), 
         .destIn(dest),
+        .src1In(src1OutId), 
+        .src2In(src2OutId),
         .flush(branchTakenEX), 
+        .freeze(ramFreeze),
         .pcOut(pcOutIdEx),
         .aluCmdOut(aluCmdOutIdEx), 
         .memReadOut(memReadOutIdEx), 
@@ -129,9 +141,9 @@ module Top(
         .immOut(immOutIdEx), 
         .shiftOperandOut(shiftOperandOutIdEx), 
         .imm24Out(imm24OutIdEx), 
-        .destOut(destOutIdEx),
-        .sortOut(sortOutIDEX),
-        .sortprevOut(sortprevOutIDEX)
+        .destOut(destOutIdEx),        
+        .src1Out(src1OutIdEx), 
+        .src2Out(src2OutIdEx)
     );
 
     StageEx stageEx(
@@ -160,8 +172,10 @@ module Top(
         .branchAddr(branchAddrEX),
         .exeDest(destOutEx),
         .status(statusEX),
-        .sort(sortOutIDEX),
-        .sort_prev(sortprevOutIDEX)
+        .selSrc1(selSrc1), 
+        .selSrc2(selSrc2),
+        .valMem(aluResOutExMem),
+        .valWb(WbValue)
     );
 
     RegsExMem regsExMem(
@@ -173,6 +187,7 @@ module Top(
         .aluResIn(aluResOutEx),
         .valRmIn(reg2OutEx),
         .destIn(destOutEx),
+        .freeze(ramFreeze),
         .wbEnOut(wbEnOutExMem),
         .memREnOut(memReadOutExMem),
         .memWEnOut(memWriteOutExMem),
@@ -194,7 +209,15 @@ module Top(
         .memREnOut(memREnOutMem),
         .aluResOut(aluResOutMem),
         .memOut(memOutMem),
-        .destOut(destOutMem)
+        .destOut(destOutMem),
+        .freeze(ramFreeze),
+        .SRAM_ADDR(SRAM_ADDR),
+        .SRAM_DQ(SRAM_DQ),
+        .SRAM_UB_N(SRAM_UB_N),
+        .SRAM_LB_N(SRAM_LB_N),
+        .SRAM_WE_N(SRAM_WE_N),
+        .SRAM_CE_N(SRAM_CE_N),
+        .SRAM_OE_N(SRAM_DE_N)
     );
 
     RegsMemWb regsMemWb(
@@ -205,6 +228,7 @@ module Top(
         .aluResIn(aluResOutMem),
         .memDataIn(memOutMem),
         .destIn(destOutMem),
+        .freeze(ramFreeze),
         .wbEnOut(wbEnOutMemWb),
         .memREnOut(memREnOutMemWb),
         .aluResOut(aluResOutMemWb),
@@ -220,15 +244,30 @@ module Top(
     );
 
     HazardUnit hzrd(
-        .rn(hazardRn), 
-        .rdm(hazardRdm),
+        .rn(src1OutId), 
+        .rdm(src2OutId),
         .twoSrc(hazardTwoSrc),
         .destEx(destOutEx), 
         .destMem(destOutMem),
         .wbEnEx(wbEnOutEx), 
         .wbEnMem(wbEnOutMem),
-        .hazard(hazard),
-        .sort(sortID),
-        .sorthazard(sorthazard)
+        .memREn(memReadOutEx),
+        .forwardEn(forwardingEn),
+        .hazard(hazard)
     );
+
+    ForwardingUnit forwardUnit(
+        .forwardEn(forwardingEn),
+        .src1(src1OutIdEx),
+        .src2(src2OutIdEx),
+        .wbEnMem(wbEnOutExMem),
+        .wbEnWb(wbEnOutMemWb),
+        .destMem(destOutExMem),
+        .destWb(destOutMemWb),
+        .selSrc1(selSrc1),
+        .selSrc2(selSrc2)
+    );
+
+
+
 endmodule

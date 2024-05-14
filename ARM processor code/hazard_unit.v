@@ -1,20 +1,22 @@
 module HazardUnit(
     input [3:0] rn, rdm,
     input twoSrc,
-    input sort,
     input [3:0] destEx, destMem,
-    input wbEnEx, wbEnMem,
-    output reg hazard,
-    output reg sorthazard
+    input wbEnEx, wbEnMem, memREn,
+    input forwardEn,
+    output reg hazard
 );
-    always @(rn, rdm, destEx, destMem, wbEnEx, wbEnMem, twoSrc) begin
+    always @(rn, rdm, destEx, destMem, wbEnEx, memREn, wbEnMem, twoSrc, forwardEn) begin
         hazard = 1'b0;
-        sorthazard = 1'b0;
-        if(sort) begin //sort
-            sorthazard = 1'b1;
+        if (forwardEn) begin
+            if (memREn) begin
+                if (rn == destEx || (twoSrc && rdm == destEx)) begin
+                    hazard = 1'b1;
+                end
+        end
         end
         else begin
-            if (wbEnEx) begin
+            if(wbEnEx) begin
                 if (rn == destEx || (twoSrc && rdm == destEx)) begin
                     hazard = 1'b1;
                 end

@@ -19,30 +19,30 @@ module StageId(
     output [11:0] shiftOperand,
     output signed [23:0] imm24,
     output [3:0] dest,
+    output [3:0] src1, src2,
     // To Hazard
     output hazardTwoSrc, 
-    output [3:0] hazardRn, hazardRdm,
-    //sort
-    output sort,sort_prev
+    output [3:0] hazardRn, hazardRdm
 );
-
     wire cond, condFinal;
     wire [3:0] aluCmdCU, rn;
     wire [3:0] regfile2Inp;
-    wire memReadCU, memWriteCU, wbEnCU, branchCU, sCU,sortCU;
+    wire memReadCU, memWriteCU, wbEnCU, branchCU, sCU;
 
     assign pcOut = pcIn;
     assign imm = inst[25];
     assign shiftOperand = inst[11:0];
     assign imm24 = inst[23:0];
-    assign dest = (sort_prev) ? inst[19:16] : inst[15:12];  //sort
+    assign dest = inst[15:12];
+    assign src1 = inst[19:16];
     assign rn = inst[19:16];
     assign hazardRn = rn;
     assign hazardRdm = regfile2Inp;
-  
+    assign src2 = regfile2Inp;
+
     assign hazardTwoSrc = ~imm | memWriteCU;
     assign condFinal = ~cond | hazard;
-
+    
     ConditionCheck cc(
         .cond(inst[31:28]),
         .status(status),
@@ -58,9 +58,7 @@ module StageId(
         .memWrite(memWriteCU),
         .wbEn(wbEnCU),
         .branch(branchCU),
-        .sOut(sCU),
-        .sort_previn(sort_prev),
-        .sort(sortCU)
+        .sOut(sCU)
     );
 
     RegisterFile rf(
@@ -76,23 +74,16 @@ module StageId(
     );
 
     MUX2to1 #(9) muxCtrlUnit(
-        .input1({aluCmdCU, memReadCU, memWriteCU, wbEnCU, branchCU, sCU, sortCU}),
-        .input2(10'd0),
+        .input1({aluCmdCU, memReadCU, memWriteCU, wbEnCU, branchCU, sCU}),
+        .input2(9'd0),
         .sel(condFinal),
-        .out({aluCmd, memRead, memWriteEn, wbEn, branch, s, sort})
+        .out({aluCmd, memRead, memWriteEn, wbEn, branch, s})
     );
 
     MUX2to1 #(4) muxRegfile(
         .input1(inst[3:0]),
         .input2(inst[15:12]),
-        .sel(memWriteEn | sort),  //sort
+        .sel(memWriteEn),
         .out(regfile2Inp)
     );
-
-    Register #(1) sort_previous(   //sort
-        .clk(clk), .rst(rst),
-        .in(sort), .ld(1'b1), .clr(1'b0),
-        .out(sort_prev)
-    );
-
 endmodule

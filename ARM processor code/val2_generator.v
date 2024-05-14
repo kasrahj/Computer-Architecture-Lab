@@ -1,5 +1,5 @@
 module Val2Generator(
-    input memInst, imm, sort,
+    input memInst, imm,
     input [31:0] valRm,
     input [11:0] shifterOperand,
     output reg [31:0] val2
@@ -8,10 +8,7 @@ module Val2Generator(
 
     always @(memInst or imm or valRm or shifterOperand) begin
         val2 = 32'd0;
-        if(sort) begin  //sort
-            val2 = valRm;
-        end
-        else if (memInst) begin // LDR, STR
+        if (memInst) begin // LDR, STR
             val2 = {{20{shifterOperand[11]}}, shifterOperand};
         end
         else begin

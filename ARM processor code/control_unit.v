@@ -1,11 +1,12 @@
+
 module ControlUnit(
     input [1:0] mode,
     input [3:0] opcode,
-    input sIn,sort_previn,
+    input sIn, 
 
     output reg [3:0] aluCmd,
     output reg memRead, memWrite,
-    output reg wbEn, branch, sOut,sort
+    output reg wbEn, branch, sOut
 );
     always @(mode, opcode, sIn) begin
         aluCmd = 4'd0;
@@ -25,7 +26,6 @@ module ControlUnit(
             4'b0001: aluCmd = 4'b1000; // EOR
             4'b1010: aluCmd = 4'b0100; // CMP
             4'b1000: aluCmd = 4'b0110; // TST
-            4'b0011: aluCmd = (sort) ?  4'b1010  : 4'b1011;
             default: aluCmd = 4'b0001;
         endcase
 
@@ -33,10 +33,8 @@ module ControlUnit(
             2'b00: begin
                 sOut = sIn;
                 // no write-back for CMP and TST
-                wbEn = (opcode == 4'b1010 || opcode == 4'b1000) ? 1'b0 : 1'b1;
-
-                //sort 
-                sort = (opcode == 4'b0011 && sort_previn == 1'b0) ? 1'b1 : 1'b0;
+                // compare
+                wbEn = (opcode == 4'b1010 || opcode == 4'b1000 || opcode == 4'b0011) ? 1'b0 : 1'b1;
 
             end
             2'b01: begin

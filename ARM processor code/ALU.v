@@ -10,14 +10,9 @@ module ALU #(
 );
     reg c, v;
     wire z, n;
-    wire [31:0] sub1,sub2;
     assign status = {n, z, c, v};
     assign z = ~|out;
     assign n = out[N-1];
-
-    //sort
-    assign {c,sub1} = a - b;
-    assign {c,sub2} = b - a;
 
     wire [N-1:0] carryExt, nCarryExt;
     assign carryExt = {{(N-1){1'b0}}, carryIn};
@@ -37,8 +32,6 @@ module ALU #(
             4'b0110: out = a & b;                  // AND
             4'b0111: out = a | b;                  // ORR
             4'b1000: out = a ^ b;                  // EOR
-            4'b1010: out = (sub1[31]) ? b : a;      //sort1
-            4'b1011: out = (sub2[31]) ? b : a;      //sort2
             default: out = {N{1'b0}};
         endcase
         
